@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #Updates
 
 1. I18N, L10N support 
@@ -18,3 +19,7 @@ Besides, [June](https://github.com/pythoncn/june) is better in many ways compare
 #Deployment
 
 Django has a great document that tells how to deploy a project in production [HERE](https://docs.djangoproject.com/en/1.6/howto/deployment/)
+=======
+# fairybbs
+story dargon
+>>>>>>> 18f166d502e9d2e2017e27a5bbe85dac58f7b9f7
