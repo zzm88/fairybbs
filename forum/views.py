@@ -11,10 +11,11 @@ from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import render_to_response
 from django.template import RequestContext
 from fairy import conf
-from forum.models import topic, post, node, appendix
+from forum.models import topic, post, node, appendix,comment
 import json
 import markdown
 import operator
+import time
 # Create your views here.
 
 
@@ -31,14 +32,16 @@ def previewer(request):
     md['marked'] = markdown.markdown(c, ['codehilite'], safe_mode='escape')
     return HttpResponse(json.dumps(md))
 
-
+#主页
+#ugettext:Translates message and returns it in a unicode string
+#排序
 def index(request):
     conf.nodes = node.objects.all()
     conf.user_count = profile.objects.count()
     conf.topic_count = topic.objects.count()
     conf.post_count = post.objects.count()
     topics = topic.objects.all().filter(deleted=False).order_by('-last_replied')[0:30]
-    post_list_title = _('latest topics')
+    post_list_title = _('latest topicstest')
     return render_to_response('forum/index.html', {'topics': topics, 'title': _('home'),
                                              'request': request,
                                              'post_list_title': post_list_title,
@@ -48,8 +51,9 @@ def index(request):
 def topic_view(request, topic_id):
     t = topic.objects.get(id=topic_id)
     t.click += 1
-    t.save()
+    
     n = t.node
+    comments = t.comment_set.filter(deleted=False)
     posts = t.post_set.filter(deleted=False)
     try:
         page = request.GET['page']
@@ -57,19 +61,28 @@ def topic_view(request, topic_id):
         page = None
     if page == '1':
         page = None
+    past_time= int(time.time()-t.locktime)
+    if t.locked== True and past_time >=300:
+        t.locked = False
+        t.locker= '0'
+    t.save()
     return render_to_response('forum/topic.html', {'conf': conf, 'title': t.title,
                                              'request': request,
                                              'topic': t,
                                              'node': n,
                                              'pager': page,
-                                             'posts': posts
+                                             'posts': posts,
+                                             'past_time':past_time,
+                                             'comments': comments,
     },
                               context_instance=RequestContext(request))
 
 
 def create_reply(request, topic_id):
     if request.method == 'POST':
+        
         t = topic.objects.get(id=topic_id)
+        past_time= int(time.time()-t.locktime)
         r = post()
         r.topic = t
         if request.POST['content']:
@@ -77,7 +90,15 @@ def create_reply(request, topic_id):
         else:
             messages.add_message(request, messages.WARNING, _('content cannot be empty'))
             return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id':topic_id}))
+        if past_time > 300:
+            messages.add_message(request, messages.WARNING, _('overtime'))
+            return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id':topic_id}))
         r.user = request.user
+        #when success to reply ,unlock the topic.
+        t.locker = '0'
+        t.locked = False
+        t.last_replier = request.user.username
+        t.save()
         r.save()
         return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id': t.id}))
     elif request.method == 'GET':
@@ -113,6 +134,7 @@ def create_topic(request, node_id):
         t.content = request.POST.get('content') or ''
         t.node = n
         t.title = request.POST['title']
+        t.locktime= 0
         if not t.title:
             messages.add_message(request, messages.WARNING, _('title cannot be empty'))
             return HttpResponseRedirect(reverse('create_topic', kwargs={'node_id':node_id}))
@@ -215,7 +237,9 @@ def add_appendix(request, topic_id):
         a.topic = t
         a.save()
         return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id': t.id}))
-
+        
+        
+        
 
 def node_all(request):
     nodes = {}
@@ -223,3 +247,40 @@ def node_all(request):
     return render_to_response('forum/node-all.html', {'request': request, 'title': _('all nodes'),
                                                 'conf': conf,
                                                 'nodes': nodes, })
+
+def lock_topic(request, topic_id):
+    t = topic.objects.get(id=topic_id)
+    if t.last_replier == request.user.username:
+        messages.add_message(request, messages.WARNING, _('you cannot lock it again until someone else reply'))
+        return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id': t.id}))
+    elif t.locker == '0':
+        t.locked = True
+        t.locker = request.user.username
+        t.locktime = time.time()
+        t.save()       
+    return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id': t.id}))
+    
+    
+def create_comment(request, topic_id):
+    if request.method == 'POST':
+        
+        t = topic.objects.get(id=topic_id)
+        past_time= int(time.time()-t.locktime)
+        r = comment()
+        r.topic = t
+        if request.POST['content']:
+            r.content = request.POST['content']
+        else:
+            messages.add_message(request, messages.WARNING, _('content cannot be empty'))
+            return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id':topic_id}))
+
+        r.user = request.user
+        #when success to reply ,unlock the topic.
+        t.locker = '0'
+        t.locked = False
+        t.last_replier = request.user.username
+        t.save()
+        r.save()
+        return HttpResponseRedirect(reverse('topic_view', kwargs={'topic_id': t.id}))
+    elif request.method == 'GET':
+        return error(request, 'don\'t get')

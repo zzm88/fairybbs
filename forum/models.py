@@ -16,8 +16,15 @@ class topic(models.Model):
     node = models.ForeignKey('node', related_name='topics')
     time_created = models.DateTimeField(auto_now_add=True)
     last_replied = models.DateTimeField(blank=True, null=True)
-    deleted = models.BooleanField(default=False)
+    deleted = models.BooleanField(default=False)  
+    #deleting a topic is not to delete a topic for real.
     order = models.IntegerField(default=10)
+    locked = models.BooleanField(default=False)
+    locker = models.CharField(default='0',max_length=40)
+    locktime=models.IntegerField()
+    last_replier = models.CharField(max_length=40,null=True)
+    # when a topic is locked by someone ,
+    # it can not be replied by others ,except the one who locks it.
     
     class Meta():
         ordering = ['order' ,'-time_created']
@@ -121,7 +128,54 @@ class post(models.Model):
                 m.save()
         self.topic.save()
 
+class comment(models.Model):
+    user = models.ForeignKey(User, related_name='comments')
+    topic = models.ForeignKey('topic')
+    content = models.TextField()
+    content_rendered = models.TextField()
+    time_created = models.DateTimeField(auto_now_add=True)
+    deleted = models.BooleanField(default=False)
 
+    class Meta():
+        ordering = ['time_created']
+
+    def __unicode__(self):
+        return str(self.id) + self.topic.title
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            new = True
+        else:
+            new = False
+        if not self.content:
+            self.content = ''
+        self.content_rendered = markdown.markdown(self.content, ['codehilite'],
+                                                  safe_mode='escape')
+        to = []
+        for u in re.findall(r'@(.*?)\s', self.content_rendered):
+            try:
+                user = User.objects.get(username=u)
+            except:
+                pass
+            else:
+                to.append(user)
+                self.content_rendered = re.sub('@%s' % (u),
+                                               '@<a href="%s" class="mention">%s</a>'
+                                               % (reverse('user_info',
+                                                          kwargs={'user_id': user.id}),
+                                                  u),
+                                               self.content_rendered)
+        super(comment, self).save(*args, **kwargs)
+        if to and new:
+            for t in to:
+                m = mention()
+                m.sender = self.user
+                m.receiver = t
+                m.comment = self
+                m.topic = self.topic
+                m.save()
+        self.topic.save()
+        
 class notification(models.Model):
     sender = models.ForeignKey(User, related_name='sent_notifications')
     receiver = models.ForeignKey(User, related_name='received_nofitications')

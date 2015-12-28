@@ -29,4 +29,6 @@ urlpatterns = patterns('forum.views',
     url(r'^recent/$', 'recent', name='recent'),
 
     url(r'^previewer/$', 'previewer', name='previewer'),
+    url(r'^topic/(?P<topic_id>\d+)/lock/$', 'lock_topic', name='lock_topic'),
+   url(r'^topic/(?P<topic_id>\d+)/comment/$', 'create_comment', name='create_comment'),
 )

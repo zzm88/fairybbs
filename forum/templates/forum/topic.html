@@ -4,6 +4,7 @@
 {% load humanize %}
 {% load pagination_tags %}
 {% load settingsvalue %}
+<!-- the main panel -->
 <div class="panel panel-default">
 	<div class="topic-heading panel-heading">
 		<div class="row">
@@ -46,6 +47,7 @@
 	{% endif %}
 </div><!--end content panel-->
 
+<!-- replies panel -->
 <div class="panel panel-default">
 	<div class="panel-heading">
 		<p class="panel-title">
@@ -56,7 +58,7 @@
 			{{reply_count}} replies
 			{% endblocktrans %}
 			{% else %}
-			{% trans 'no replies yet' %}
+			{% trans '等待你来续写' %}
 			{% endif %}
 		</p>
 	</div>
@@ -77,9 +79,9 @@
 							{% endif %}
 						</div>
 						<div class="col-sm-2">
-							{% if request.user.is_authenticated %}
+		<!-- 					{% if request.user.is_authenticated %}
 							<a href="#create_reply" data-user="{{r.user.username}}" class="label-info label pull-right reply-btn">reply</a>
-							{% endif %}
+							{% endif %} -->
 						</div>
 					</div>
 					<div class="row">
@@ -104,51 +106,208 @@
 	{% endif %}
 </div><!--end reply panel-->
 
-<div class="panel panel-default" id="create_reply">
-	<div class="panel-heading">
-		<p class="panel-title">
-			{% trans 'reply' %}
-		</p>
-	</div>
-	<div class="panel-body">
-		{% if messages %}
-		<div class="messages">
-			{% for message in messages %}
-			<p class="text-{{ message.tags }}">
-				{{ message }}
-			</p>
-			{% endfor %}
-		</div>
-		{% endif %}
-		{% if request.user.is_authenticated %}
-		<form class="form" action="{% url 'create_reply' topic.id%}" method="post">
-			{% csrf_token %}
-			<div class="form-group ">
-				<label class="sr-only" for="content">{% trans 'content' %}</label>
-				<textarea class="form-control" id="content" name="content"></textarea>
-			</div>
+<!-- replying panel -->
+{% if topic.locked and topic.locker == user.username %}
+    <div class="panel panel-default" id="create_reply">
+        <div class="panel-heading">
+            <p class="panel-title">
+                   {{past_time}}s passed...you have 300 seconds to finish this lock.
+            </p>
+        </div>
+        <div class="panel-body">
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <p class="text-{{ message.tags }}">
+                    {{ message }}
+                </p>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if request.user.is_authenticated %}
+            <form class="form" action="{% url 'create_reply' topic.id%}" method="post">
+                {% csrf_token %}
+                <div class="form-group ">
+                    <label class="sr-only" for="content">{% trans 'content' %}</label>
+                    <textarea class="form-control" id="content" name="content"></textarea>
+                </div>
 
-			<div class="form-submit text-right">
-				<a class="btn btn-default" id="pre-btn"> {% trans 'preview' %} </a>
-				<button class="btn btn-info" type="submit" id="submit">
-					{% trans 'submit' %}(Ctrl+Enter)
-				</button>
-			</div>
-		</form>
-		<div class="previewer">
+                <div class="form-submit text-right">
+                    <a class="btn btn-default" id="pre-btn"> {% trans 'preview' %} </a>
+                    <button class="btn btn-info" type="submit" id="submit">
+                        {% trans 'submit' %}(Ctrl+Enter)
+                    </button>
+                </div>
+            </form>
+            <div class="previewer">
 
-		</div>
-		{% else %}
-		<div class="alert alert-info">
-			{% trans 'please sign in before reply' %}
-		</div>
-		<a href="{% url 'signin' %}" class="btn btn-info">{% trans 'sign in' %}</a>
-		{% endif %}
-	</div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                {% trans 'please sign in before reply' %}
+            </div>
+            <a href="{% url 'signin' %}" class="btn btn-info">{% trans 'sign in' %}</a>
+            {% endif %}
+        </div>
 
-</div><!--end reply panel-->
+    </div><!--end reply panel-->
+{% endif %}
+
+<!-- locked by someone else panel-->
+{% if topic.locked and topic.locker != user.username %}
+    <div class="panel panel-default" >
+        <div class="panel-heading">
+            <p class="panel-title">
+                {% trans 'this acticle has been locked by'  %} {{ topic.locker }} {% trans 'and he/she is working on it...you may have to wait up to'  %}  {{past_time}} /300 seconds until time's up for unlocking.
+            </p>
+        </div>
+    </div>
+{% endif %}
+
+<!-- you can lockit panel -->
+{% if not topic.locked %}
+    <div class="panel panel-default" id="create_reply">
+        <div class="panel-heading">
+            <p class="panel-title">
+                {% trans 'you can lock' %}
+            </p>
+        </div>
+        <div class="panel-body">
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <p class="text-{{ message.tags }}">
+                    {{ message }}
+                </p>
+                {% endfor %}
+            </div>
+            {% endif %}          
+            {% if request.user.is_authenticated %}
+                 <a  href="lock" class="btn btn-default" id="pre-btn"> {% trans 'lockit' %} </a>
+            
+
+            
+            {% else %}
+            <div class="alert alert-info">
+                {% trans 'please sign in before reply' %}
+            </div>
+            <a href="{% url 'signin' %}" class="btn btn-info">{% trans 'sign in' %}</a>
+            {% endif %}
+        </div>
+
+    </div><!--end reply panel-->
+{% endif %}
+
+
+<!-- commenting panel -->
+
+<div class="panel panel-default" id="create_comment">
+    <div class="panel-heading">
+        <p class="panel-title">
+               comment
+        </p>
+    </div>
+    <div class="panel-body">
+        {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+            <p class="text-{{ message.tags }}">
+                {{ message }}
+            </p>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if request.user.is_authenticated %}
+        <form class="form" action="{% url 'create_comment' topic.id%}" method="post">
+            {% csrf_token %}
+            <div class="form-group ">
+                <label class="sr-only" for="content">{% trans 'content' %}</label>
+                <textarea class="form-control" id="content" name="content"></textarea>
+            </div>
+
+            <div class="form-submit text-right">
+                <a class="btn btn-default" id="pre-btn"> {% trans 'preview' %} </a>
+                <button class="btn btn-info" type="submit" id="submit">
+                    {% trans 'submit' %}(Ctrl+Enter)
+                </button>
+            </div>
+        </form>
+        <div class="previewer">
+
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            {% trans 'please sign in before reply' %}
+        </div>
+        <a href="{% url 'signin' %}" class="btn btn-info">{% trans 'sign in' %}</a>
+        {% endif %}
+    </div>
+
+</div><!--end commenting panel-->
+
+
+
+
 {% endblock %}
 {% block right %}
+<!-- comments panel -->
+<div class="panel panel-default">
+	<div class="panel-heading">
+		<p class="panel-title">
+			{% if topic.reply_count %}
+			{% blocktrans count reply_count=topic.reply_count %}
+			{{reply_count}} reply
+			{% plural %}
+			{{reply_count}} replies
+			{% endblocktrans %}
+			{% else %}
+			{% trans '等待你来续写' %}
+			{% endif %}
+		</p>
+	</div>
+	{% if topic.reply_count != 0 %}
+	<ul class="list-group">
+		{% autopaginate comments 30 %}
+		{% for r in comments %}
+		<div class="list-group-item list-topic-item" id="comment-{{r.id}}">
+			<div class="row ">
+				<a href="{% url 'user_info' r.user.id %}" class="col-md-1"><img title="{{r.user.profile.username}}" class="avatar-middle" src="{{r.user.profile.avatar.middle}}"></a>
+				<div class="col-xs-11">
+					<div class="row">
+						<div class="reply-author col-sm-10">
+							<a href="{% url 'user_info' r.user.id %}">{{r.user.profile.username}}</a>
+							<span class="list-time">{{r.time_created | naturaltime}}</span>
+							{% if request.user.is_superuser %}
+							<a class="delete" href="{% url 'delete_post' r.id%}">{% trans 'delete' %}</a>
+							{% endif %}
+						</div>
+						<div class="col-sm-2">
+		<!-- 					{% if request.user.is_authenticated %}
+							<a href="#create_reply" data-user="{{r.user.username}}" class="label-info label pull-right reply-btn">reply</a>
+							{% endif %} -->
+						</div>
+					</div>
+					<div class="row">
+						<div class="reply-content col-md-12">
+							{{r.content_rendered | safe}}
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		{% endfor %}
+	</ul>
+	<div class="panel-footer">
+		{% paginate %}
+	</div>
+	{% else %}
+	<div class="panel-body">
+		<div class="alert alert-info">
+			{% trans 'no replies yet' %}
+		</div>
+	</div>
+	{% endif %}
+</div><!--end comments panel-->
 {% include 'node-info.html' %}
 {% include 'user-panel.html' %}
 {% include 'node.html' %}
